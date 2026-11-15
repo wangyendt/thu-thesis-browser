@@ -25,7 +25,7 @@ const { READ_METADATA_SCRIPT, buildPaperFilename } = require('../src/paper-metad
     const paperMetadata = await remote(application, READ_METADATA_SCRIPT, 1);
     assert.equal(paperMetadata.title, paper.title);
     assert.ok(paperMetadata.author);
-    assert.equal(paperMetadata.student, metadata['学号']);
+    assert.equal(Object.hasOwn(paperMetadata, 'student'), false);
     assert.equal(paperMetadata.discipline, '工程管理');
     assert.ok(paperMetadata.college);
     console.log('PASS: real thesis summary metadata extracted; default filename: ' + buildPaperFilename(paperMetadata));

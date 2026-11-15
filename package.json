@@ -1,6 +1,6 @@
 {
   "name": "thu-thesis-browser",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "private": true,
   "description": "非官方清华学位论文检索桌面客户端，修正学科名检索参数",
   "author": "Local Tools",

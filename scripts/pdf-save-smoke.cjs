@@ -81,8 +81,8 @@ function fixturePDF() {
     assert.equal(dialogCall.readAlreadyStarted, false, 'Save dialog must open before any potentially slow PDF data read');
     assert.equal(dialogCall.hasPDFExtension, true);
     if (process.argv.includes('--metadata')) {
-      assert.equal(path.basename(dialogCall.defaultPath), '供应链风险研究_张三_经济管理学院_2022xxxxxx_工程管理_硕士_2025-06-01.pdf');
-      console.log('PASS: Save As defaults to metadata from the exact summary/opener, with masked ID preserved');
+      assert.equal(path.basename(dialogCall.defaultPath), '供应链风险研究_张三_经济管理学院_工程管理_硕士_2025-06-01.pdf');
+      console.log('PASS: Save As defaults to metadata from the exact summary/opener, without student ID');
     }
     console.log('PASS: explicit parented Save As dialog appears BEFORE reading PDF bytes');
     if (process.argv.includes('--cancel')) {
