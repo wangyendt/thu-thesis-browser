@@ -11,7 +11,7 @@
 
 ## 直接使用
 
-Windows 便携版位于 `release/ThesisBrowser-1.0.6-win-x64.exe`，也可从私有仓库的 [GitHub Release](https://github.com/wangyendt/thu-thesis-browser/releases/latest) 下载。双击运行，无需 Python 或 Node.js。
+Windows 便携版位于 `release/ThesisBrowser-1.0.6-win-x64.exe`，也可从公开的 [GitHub Release](https://github.com/wangyendt/thu-thesis-browser/releases/latest) 下载。双击运行，无需 Python 或 Node.js。
 
 登录状态与旧版共用本机应用数据目录。使用新版本前关闭旧版；图标若仍显示缓存中的旧样式，可取消固定旧快捷方式，再固定新版本。
 
@@ -28,7 +28,7 @@ npm test
 npm run dist:win
 ```
 
-在对应操作系统运行 `npm run dist:mac` 或 `npm run dist:linux`。手动触发的 GitHub Actions 配置位于 `.github/workflows/build.yml`。私有源码仓库为 [wangyendt/thu-thesis-browser](https://github.com/wangyendt/thu-thesis-browser)，默认分支为 `main`；推送代码不会自动运行构建工作流。
+在对应操作系统运行 `npm run dist:mac` 或 `npm run dist:linux`。手动触发的 GitHub Actions 配置位于 `.github/workflows/build.yml`。公开源码仓库为 [wangyendt/thu-thesis-browser](https://github.com/wangyendt/thu-thesis-browser)，默认分支为 `main`；推送代码不会自动运行构建工作流。
 
 ```sh
 npm run test:desktop
