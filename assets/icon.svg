@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>Thesis Browser</title>
+  <desc>An open book and a mint search lens on a plum square.</desc>
+  <rect x="56" y="56" width="912" height="912" rx="208" fill="#603c8c"/>
+  <path d="M230 268c100-25 182-13 268 39v424c-82-49-164-62-268-36V268Z" fill="#fff"/>
+  <path d="M522 307c86-52 168-64 272-39v427c-104-26-186-13-272 36V307Z" fill="#f2edf8"/>
+  <path d="M293 372c47-4 89 3 132 22m-132 54c47-4 89 3 132 22m-132 54c47-4 89 3 132 22M589 394c41-18 82-25 130-22m-130 98c41-18 82-25 130-22" fill="none" stroke="#a58cbe" stroke-width="19" stroke-linecap="round"/>
+  <circle cx="695" cy="656" r="145" fill="#603c8c"/>
+  <path d="m776 739 83 83" fill="none" stroke="#b9edd9" stroke-width="56" stroke-linecap="round"/>
+  <circle cx="695" cy="656" r="102" fill="#603c8c" stroke="#b9edd9" stroke-width="37"/>
+</svg>

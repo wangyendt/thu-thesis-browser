@@ -1,0 +1,68 @@
+{
+  "name": "thu-thesis-browser",
+  "version": "1.0.4",
+  "private": true,
+  "description": "非官方清华学位论文检索桌面客户端，修正学科名检索参数",
+  "author": "Local Tools",
+  "license": "MIT",
+  "main": "src/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.cjs",
+    "test:desktop": "node scripts/desktop-smoke.cjs",
+    "test:live": "node scripts/live-smoke.cjs",
+    "test:pdf": "node scripts/pdf-save-smoke.cjs",
+    "test:pdf:live": "node scripts/pdf-save-smoke.cjs --real-viewer",
+    "test:packaged": "node scripts/packaged-smoke.cjs",
+    "icons": "node scripts/generate-icons.cjs",
+    "test:icons:exe": "node scripts/verify-exe-icons.cjs",
+    "pack": "electron-builder --dir",
+    "dist:win": "electron-builder --win portable --x64",
+    "dist:mac": "electron-builder --mac dmg --arm64 --x64",
+    "dist:linux": "electron-builder --linux AppImage --x64"
+  },
+  "devDependencies": {
+    "electron": "45.3.2",
+    "electron-builder": "26.18.0",
+    "playwright": "1.65.1",
+    "resedit": "1.7.2"
+  },
+  "overrides": {
+    "app-builder-lib": {
+      "minimatch": "^11.0.1"
+    },
+    "@electron/universal": {
+      "minimatch": "^11.0.1"
+    }
+  },
+  "build": {
+    "appId": "local.thu.thesisbrowser",
+    "productName": "Thesis Browser",
+    "artifactName": "ThesisBrowser-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": "portable",
+      "icon": "assets/icon.ico",
+      "signExecutable": false
+    },
+    "mac": {
+      "category": "public.app-category.education",
+      "target": "dmg",
+      "icon": "assets/icon.icns",
+      "identity": null
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png",
+      "category": "Education"
+    }
+  }
+}

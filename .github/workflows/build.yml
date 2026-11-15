@@ -1,0 +1,38 @@
+name: Build thesis browser
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: win
+          - os: macos-latest
+            target: mac
+          - os: ubuntu-latest
+            target: linux
+    runs-on: ${{ matrix.os }}
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run dist:${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: thesis-browser-${{ matrix.target }}
+          retention-days: 14
+          path: |
+            release/*.exe
+            release/*.dmg
+            release/*.AppImage

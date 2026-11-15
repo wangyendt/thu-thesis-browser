@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'">
+  <title>论文检索 · Thesis Browser</title>
+  <link rel="stylesheet" href="shell.css">
+  <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+</head>
+<body>
+  <header>
+    <div class="navigation">
+      <div class="brand"><img class="brand-icon" src="../assets/icon.svg" alt=""><strong>论文检索</strong><span class="unofficial">非官方 <span id="app-version"></span></span></div>
+      <div class="nav-buttons">
+        <button id="back" class="icon" title="后退" aria-label="后退">←</button>
+        <button id="forward" class="icon" title="前进" aria-label="前进">→</button>
+        <button id="reload" class="icon" title="刷新网页" aria-label="刷新网页">↻</button>
+      </div>
+      <form id="address-form"><input id="address" type="url" aria-label="当前网页地址" spellcheck="false"></form>
+      <button id="copy" class="quiet" title="复制当前论文网址">复制链接</button>
+      <button id="save-pdf" class="save-pdf" disabled title="先打开并加载论文 PDF 预览">保存当前 PDF</button>
+      <button id="downloads" class="quiet">下载记录 <span id="download-count">0</span></button>
+      <button id="help" class="icon" aria-label="使用说明" title="使用说明">?</button>
+    </div>
+    <nav id="tabs" aria-label="网页标签"></nav>
+    <form id="search-form">
+      <label>学号包含<input id="student" value="2022" maxlength="200" placeholder="如 2022"></label>
+      <label class="discipline">学科 / 专业<input id="discipline" value="工程管理" maxlength="200" placeholder="如 工程管理"></label>
+      <label class="title">题名包含<input id="title" maxlength="200" placeholder="可留空"></label>
+      <label class="check"><input id="exact" type="checkbox" checked>专业精确匹配</label>
+      <button id="search" type="submit" class="primary">检索论文 <span aria-hidden="true">↗</span></button>
+    </form>
+  </header>
+  <main id="placeholder"><h1>连接清华大学学位论文服务系统</h1><p>网页将显示在这里。若加载失败，请检查网络后点击刷新。</p></main>
+  <aside id="panel" hidden>
+    <div class="panel-heading"><h2 id="panel-title">下载</h2><button id="close-panel" class="icon" aria-label="关闭侧栏">×</button></div>
+    <section id="download-panel">
+      <p class="muted">打开 PDF 预览后点击上方“保存当前 PDF”，在系统对话框中选择保存位置。保存的是当前预览文档，保留原有水印。</p>
+      <div class="directory"><span id="download-directory"></span><button id="choose-directory" class="quiet">更改目录</button></div>
+      <button id="open-directory" class="secondary">打开下载目录</button>
+      <div id="download-list" aria-live="polite"></div>
+    </section>
+    <section id="help-panel" hidden>
+      <div class="notice"><strong>检索参数已自动修正</strong><p>网站中的“学科名”会按接口实际字段“专业”提交。无需添加 %、* 或引号。</p></div>
+      <h3>浏览与下载</h3><p>使用上方检索栏，或直接使用网页内的高级检索。点击论文标题会在新标签页打开；登录窗口也会保留在应用内。</p>
+      <p>在 PDF 预览页等待正文出现，点击工具栏“保存当前 PDF”。右侧“下载记录”只显示任务状态，并不是保存按钮。只保存当前已获准加载的 PDF，保留水印，不获取无水印版本。</p>
+      <p>应用使用网站原有的预览与下载功能。下载权限、登录验证、校园网或 VPN 要求仍由清华网站决定，不绕过权限。</p>
+      <h3>登录与数据</h3><p>登录状态保存在本机应用数据目录，与系统浏览器相互独立。密码由网站处理；本应用不读取或记录密码。不要在共享电脑上保留登录。</p>
+      <h3>打不开网页？</h3><p>确认网络、校园网/VPN可用，再点击刷新。外部网站会在确认后交给系统浏览器；应用不忽略证书错误。</p>
+      <button id="external" class="secondary">用系统浏览器打开当前网页</button>
+      <h3>快捷键</h3><p>Ctrl / ⌘ + T：新标签页<br>Ctrl / ⌘ + W：关闭标签页<br>Ctrl / ⌘ + R：刷新</p>
+      <p class="muted">独立辅助工具，并非清华大学或图书馆官方产品。</p>
+    </section>
+  </aside>
+  <footer><span id="patch-state" class="badge">连接中</span><span id="status" role="status">登录、预览与下载沿用网站原有权限。</span><span id="loading"></span></footer>
+  <script src="shell.js"></script>
+</body>
+</html>
