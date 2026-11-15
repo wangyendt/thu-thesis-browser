@@ -59,7 +59,9 @@
 产物位于 release。macOS 和 Linux 构建脚本已配置，但本机是 Windows，未在这两个系统上实测。
 macOS 构建没有 Apple 开发者签名或公证；对外分发需要自行配置签名、公证。
 Linux 需要桌面图形环境和发行版提供的 Electron 系统依赖。AppImage 可能需要 FUSE 支持。
-仓库根目录 .github/workflows/build.yml 提供手动触发的三平台构建工作流；本仓库未配置远程地址，未推送或运行远程工作流。
+仓库根目录 .github/workflows/build.yml 提供手动触发的三平台构建工作流。
+私有源码仓库：https://github.com/wangyendt/thu-thesis-browser，默认分支 main。
+推送代码不会自动运行构建工作流。
 
 若开发依赖下载很慢，请使用自己信任的网络代理。Node.js 24+ 可通过 NODE_USE_ENV_PROXY=1 让内置 fetch 使用 HTTP_PROXY/HTTPS_PROXY。
 Electron 安装也支持 ELECTRON_GET_USE_PROXY。依赖版本和完整性信息保存在 package-lock.json。

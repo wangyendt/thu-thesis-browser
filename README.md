@@ -27,7 +27,7 @@ npm test
 npm run dist:win
 ```
 
-在对应操作系统运行 `npm run dist:mac` 或 `npm run dist:linux`。手动触发的 GitHub Actions 配置位于 `.github/workflows/build.yml`；本仓库未配置远程地址，也未推送代码。
+在对应操作系统运行 `npm run dist:mac` 或 `npm run dist:linux`。手动触发的 GitHub Actions 配置位于 `.github/workflows/build.yml`。私有源码仓库为 [wangyendt/thu-thesis-browser](https://github.com/wangyendt/thu-thesis-browser)，默认分支为 `main`；推送代码不会自动运行构建工作流。
 
 ```sh
 npm run test:desktop
