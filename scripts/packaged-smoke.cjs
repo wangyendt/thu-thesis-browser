@@ -14,7 +14,7 @@ const target = path.join(root, 'test-output', 'ADMINI~1', `packaged-${packaged.v
 fs.cpSync(source, target, { recursive: true });
 const env = { ...process.env, THESIS_BROWSER_EXECUTABLE: path.join(target, 'Thesis Browser.exe') };
 delete env.ELECTRON_RUN_AS_NODE;
-for (const args of [['scripts/pdf-save-smoke.cjs', '--real-viewer', '--popup'], ['scripts/desktop-smoke.cjs']]) {
+for (const args of [['scripts/pdf-save-smoke.cjs', '--real-viewer', '--popup', '--metadata'], ['scripts/desktop-smoke.cjs']]) {
   const result = spawnSync(process.execPath, args, { cwd: root, env, stdio: 'inherit' });
   if (result.status !== 0) process.exit(result.status || 1);
 }

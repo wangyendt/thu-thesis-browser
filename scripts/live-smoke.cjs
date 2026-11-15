@@ -2,6 +2,7 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { launch, remote, waitFor, screenshot, OUTPUT } = require('./test-helpers.cjs');
+const { READ_METADATA_SCRIPT, buildPaperFilename } = require('../src/paper-metadata.cjs');
 
 (async () => {
   const { application, window } = await launch(path.join(OUTPUT, `live-profile-${Date.now()}`));
@@ -21,6 +22,13 @@ const { launch, remote, waitFor, screenshot, OUTPUT } = require('./test-helpers.
     const metadata = await remote(application, `(() => { const result={};for(const li of document.querySelectorAll('li')){const d=[...li.children].filter(x=>x.tagName==='DIV');if(d.length===2 && ['学号','学科名'].includes(d[0].textContent.trim()))result[d[0].textContent.trim()]=d[1].textContent.trim();}return result;})()`, 1);
     assert.equal(metadata['学科名'], '工程管理');
     assert.ok(metadata['学号'].includes('2022'));
+    const paperMetadata = await remote(application, READ_METADATA_SCRIPT, 1);
+    assert.equal(paperMetadata.title, paper.title);
+    assert.ok(paperMetadata.author);
+    assert.equal(paperMetadata.student, metadata['学号']);
+    assert.equal(paperMetadata.discipline, '工程管理');
+    assert.ok(paperMetadata.college);
+    console.log('PASS: real thesis summary metadata extracted; default filename: ' + buildPaperFilename(paperMetadata));
     console.log('PASS: embedded detail tab confirms subject and masked 2022 student ID');
     console.log(JSON.stringify({ count, sample: paper, metadata }, null, 2));
     await screenshot(application, 'live-detail.png');

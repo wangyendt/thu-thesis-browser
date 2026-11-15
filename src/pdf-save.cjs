@@ -10,7 +10,8 @@ function inspectLoadedPDF() {
   if (/^getPdfStream(?:\.|$)/i.test(filename)) filename = '论文';
   filename = filename.replace(/[\x00-\x1f\x7f<>:"/\\|?*]/g, '_').replace(/[. ]+$/g, '').slice(0, 140) || '论文';
   if (!/\.pdf$/i.test(filename)) filename += '.pdf';
-  return { isViewer, ready, pages: ready ? viewer.pdfDocument.numPages : 0, filename };
+  return { isViewer, ready, pages: ready ? viewer.pdfDocument.numPages : 0, filename,
+    metadata: { title: filename.replace(/\.pdf$/i, ''), author: String(viewer?.documentInfo?.Author || '').slice(0, 100) } };
 }
 
 async function saveLoadedPDF() {

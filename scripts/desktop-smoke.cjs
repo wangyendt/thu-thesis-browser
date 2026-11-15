@@ -14,7 +14,10 @@ const { launch, remote, waitFor, screenshot, OUTPUT } = require('./test-helpers.
     await application.evaluate(async ({ session }, savedFile) => {
       const ses = session.fromPartition('persist:thesis-browser');
       globalThis.__testRequests = [];
-      ses.on('will-download', (_event, item) => item.setSavePath(savedFile));
+      ses.on('will-download', (_event, item) => {
+        globalThis.__suggestedDownloadPath = item.getSaveDialogOptions().defaultPath;
+        item.setSavePath(savedFile);
+      });
       await ses.protocol.handle('https', async request => {
         const url = new URL(request.url);
         if (url.pathname.endsWith('/qhGetSingleList')) {
@@ -25,7 +28,7 @@ const { launch, remote, waitFor, screenshot, OUTPUT } = require('./test-helpers.
           return new Response(JSON.stringify({ countNumber: count, pageIndex: p.pageIndex, qhlwdataList: count ? [{ 中文题名: '测试论文' }] : [] }), { headers: { 'Content-Type': 'application/json' } });
         }
         if (url.pathname === '/test/download') return new Response('%PDF-1.4\n% local synthetic download fixture\n%%EOF', { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="fixture.pdf"' } });
-        if (url.pathname.includes('/summary')) return new Response('<!doctype html><meta charset="utf-8"><title>测试论文详情</title><h1>测试论文详情</h1><p>学科名：工程管理</p><a id="download" href="/test/download">下载测试 PDF</a>', { headers: { 'Content-Type': 'text/html;charset=utf-8' } });
+        if (url.pathname.includes('/summary')) return new Response('<!doctype html><meta charset="utf-8"><title>测试论文详情</title><div class="XwlwGl"><div class="titleBox"><h1 class="cn">测试论文详情</h1></div><div class="authorBox"><span>作者：张三</span></div><div class="infoBox"><ul><li><div>学科名</div><div>工程管理</div></li></ul></div></div><a id="download" href="/test/download">下载测试 PDF</a>', { headers: { 'Content-Type': 'text/html;charset=utf-8' } });
         const row = () => '<div class="ztj"><div class="tj"><input value="并且"></div><div class="sBox"><div class="tm"><input value="题名"></div><div class="sr"><input></div><div class="tj1"><input value="部分匹配"></div></div></div>';
         return new Response(`<!doctype html><meta charset="utf-8"><title>测试清华论文库</title><style>body{font-family:sans-serif;padding:30px}.ztj{display:flex;margin:10px}.sBox{display:flex}#results{font-size:30px}</style>
           <div class="GJJS"><div id="sKeyWrap0">${row()}${row()}${row()}</div></div>
@@ -57,6 +60,8 @@ const { launch, remote, waitFor, screenshot, OUTPUT } = require('./test-helpers.
     await remote(application, "document.getElementById('download').click()", 1);
     await waitFor(() => fs.existsSync(savedFile) && fs.readFileSync(savedFile, 'utf8').startsWith('%PDF-1.4'));
     await window.locator('#download-list').getByText(/下载完成/).waitFor();
+    assert.equal(path.basename(await application.evaluate(() => globalThis.__suggestedDownloadPath)), '测试论文详情_张三_工程管理.pdf');
+    console.log('PASS: native website PDF downloads also receive a metadata-based default filename');
     console.log('PASS: native download event saves PDF and updates download panel');
     await application.evaluate(async ({ session }) => {
       const ses = session.fromPartition('persist:thesis-browser');

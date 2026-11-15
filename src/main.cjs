@@ -8,6 +8,7 @@ const { isTrustedShellSender } = require('./ipc-trust.cjs');
 const { HOME, SITE, isInternalURL, isSiteURL, isExternalURL, normalizeSearch } = require('./policy.cjs');
 const { PATCH_SCRIPT, quickSearchScript } = require('./site-patch.cjs');
 const { PDF_STATE_SCRIPT, READ_PDF_SCRIPT } = require('./pdf-save.cjs');
+const { isSummaryURL, buildPaperFilename, READ_METADATA_SCRIPT } = require('./paper-metadata.cjs');
 
 app.setName('Thesis Browser');
 if (process.platform === 'win32') app.setAppUserModelId('local.thu.thesisbrowser');
@@ -75,8 +76,11 @@ async function inspectPDF(tab) {
   }
   if (wc.isLoadingMainFrame()) return;
   tab.inspecting = true;
+  const sourceURL = wc.getURL();
   try {
     const pdf = await wc.executeJavaScript(PDF_STATE_SCRIPT);
+    if (wc.isDestroyed() || wc.getURL() !== sourceURL) return;
+    pdf.filename = buildPaperFilename(tab.paper || pdf.metadata, pdf.filename);
     if (JSON.stringify(pdf) !== JSON.stringify(tab.pdf)) { tab.pdf = pdf; sendState(); }
   } catch { /* A navigation may destroy the inspected document. */ }
   finally { tab.inspecting = false; }
@@ -93,7 +97,7 @@ async function saveCurrentPDF(tab) {
     // Explicit, parented OS dialog BEFORE any renderer evaluation or PDF read.
     const result = await dialog.showSaveDialog(mainWindow, {
       title: '保存当前 PDF（保留原有水印）', buttonLabel: '保存 PDF',
-      defaultPath: path.join(settings.downloadDirectory || app.getPath('downloads'), tab.pdf?.filename || '论文.pdf'),
+      defaultPath: path.join(settings.downloadDirectory || app.getPath('downloads'), buildPaperFilename(tab.paper || tab.pdf?.metadata, tab.pdf?.filename || '论文.pdf')),
       filters: [{ name: 'PDF 文档', extensions: ['pdf'] }],
       properties: ['showOverwriteConfirmation', 'createDirectory']
     });
@@ -169,6 +173,20 @@ async function runPendingSearch(tab) {
     message('已提交检索；学科名按“专业”字段查询。');
   } catch (error) { message(`检索未提交：${error.message}`); }
 }
+async function capturePaperMetadata(tab) {
+  const wc = tab.view.webContents;
+  const url = wc.isDestroyed() ? '' : wc.getURL();
+  if (!isSummaryURL(url)) return;
+  try {
+    const paper = await wc.executeJavaScript(READ_METADATA_SCRIPT);
+    if (!wc.isDestroyed() && wc.getURL() === url) tab.paper = paper;
+  } catch { /* The summary may have navigated away. */ }
+}
+function inheritsPaper(previous, url) {
+  const pdfPath = value => { try { return isSiteURL(value) && new URL(value).pathname === '/pdf/generic/web/viewer.html'; } catch { return false; } };
+  const initialBlank = !previous || previous === 'about:blank';
+  return (pdfPath(url) && (isSummaryURL(previous) || previous === url || initialBlank)) || (url === 'about:blank' && initialBlank);
+}
 function newTab(url = HOME, options = {}) {
   const view = new WebContentsView({ ...(options.webContents ? { webContents: options.webContents } : {}), webPreferences: {
     ...options.webPreferences, partition: PARTITION, nodeIntegration: false, contextIsolation: true, sandbox: true,
@@ -177,20 +195,42 @@ function newTab(url = HOME, options = {}) {
     // Never inherit privileges or a preload from window.open's features.
     preload: undefined, nodeIntegrationInSubFrames: false, nodeIntegrationInWorker: false
   } });
-  const tab = { id: nextTabId++, view, title: '正在载入…', loading: true, patched: false, error: '', pendingSearch: null, pdf: { isViewer: false, ready: false, pages: 0 }, saving: false };
+  const tab = { id: nextTabId++, view, title: '正在载入…', loading: true, patched: false, error: '', pendingSearch: null, pdf: { isViewer: false, ready: false, pages: 0 }, saving: false, paper: null, metadataGeneration: 0 };
   tabs.set(tab.id, tab);
   mainWindow.contentView.addChildView(view);
   const wc = view.webContents;
+  tab.committedURL = wc.getURL();
+  if (options.paperPromise) {
+    const generation = tab.metadataGeneration;
+    void options.paperPromise.then(paper => {
+      if (!wc.isDestroyed() && tab.metadataGeneration === generation) {
+        tab.paper = paper; void inspectPDF(tab);
+      }
+    });
+  }
   wc.setZoomFactor(0.9);
   wc.on('page-title-updated', (_event, title) => { tab.title = title; sendState(); });
   wc.on('did-start-loading', () => { tab.loading = true; tab.error = ''; sendState(); });
   wc.on('did-stop-loading', () => { tab.loading = false; sendState(); });
-  wc.on('did-start-navigation', (_e, _u, inPlace, isMainFrame) => {
-    if (isMainFrame && !inPlace) { tab.patched = false; tab.pdf = { isViewer: false, ready: false, pages: 0 }; sendState(); }
+  wc.on('did-start-navigation', (_e, url, inPlace, isMainFrame) => {
+    if (isMainFrame && !inPlace) {
+      // Only a summary -> PDF transition (including its blank popup) inherits metadata.
+      if (!inheritsPaper(tab.committedURL, url)) tab.metadataGeneration++;
+      tab.patched = false; tab.pdf = { isViewer: false, ready: false, pages: 0 }; sendState();
+    }
   });
-  wc.on('dom-ready', () => { void applyPatch(tab); });
-  wc.on('did-finish-load', async () => { await applyPatch(tab); await runPendingSearch(tab); await inspectPDF(tab); sendState(); });
-  wc.on('did-navigate', () => sendState());
+  wc.on('dom-ready', () => { void capturePaperMetadata(tab); void applyPatch(tab); });
+  wc.on('did-finish-load', async () => {
+    await applyPatch(tab); await runPendingSearch(tab);
+    await capturePaperMetadata(tab);
+    await inspectPDF(tab); sendState();
+  });
+  wc.on('did-navigate', (_event, url) => {
+    // An attachment starts navigation but never commits a new page. Keep its
+    // originating summary metadata until will-download has selected the name.
+    if (!inheritsPaper(tab.committedURL, url)) tab.paper = null;
+    tab.committedURL = url; sendState();
+  });
   wc.on('did-navigate-in-page', () => sendState());
   wc.on('did-fail-load', (_e, code, description, _url, isMainFrame) => {
     if (isMainFrame && code !== -3) { tab.error = `${description} (${code})`; message('网页加载失败，请检查网络、校园网/VPN后点击刷新。'); }
@@ -204,7 +244,12 @@ function newTab(url = HOME, options = {}) {
       void openExternal(details.url); return { action: 'deny' };
     }
     return { action: 'allow', createWindow: popupOptions => {
-      const popup = newTab(null, { ...popupOptions, webPreferences: { ...popupOptions.webPreferences,
+      // Snapshot the exact opener, not whichever detail tab happens to be active later.
+      const sourceURL = wc.getURL();
+      const paperPromise = isSummaryURL(sourceURL)
+        ? wc.executeJavaScript(READ_METADATA_SCRIPT).then(paper => paper?.sourceURL === sourceURL ? paper : null).catch(() => null)
+        : Promise.resolve(null);
+      const popup = newTab(null, { ...popupOptions, paperPromise, webPreferences: { ...popupOptions.webPreferences,
         partition: PARTITION, nodeIntegration: false, contextIsolation: true, sandbox: true,
         webSecurity: true, allowRunningInsecureContent: false } });
       return popup.view.webContents;
@@ -236,12 +281,15 @@ function newTab(url = HOME, options = {}) {
 }
 
 function setupDownloads() {
-  siteSession.on('will-download', (_event, item) => {
+  siteSession.on('will-download', (_event, item, source) => {
     const id = nextDownloadId++;
-    const entry = { id, filename: item.getFilename(), state: 'progressing', received: 0, total: item.getTotalBytes(), path: '', item };
+    const tab = [...tabs.values()].find(t => t.view.webContents === source);
+    const filename = (item.getMimeType() === 'application/pdf' || /\.pdf$/i.test(item.getFilename())) && tab?.paper
+      ? buildPaperFilename(tab.paper, item.getFilename()) : path.basename(item.getFilename());
+    const entry = { id, filename, state: 'progressing', received: 0, total: item.getTotalBytes(), path: '', item };
     downloads.set(id, entry);
     item.setSaveDialogOptions({
-      title: '保存下载文件', defaultPath: path.join(settings.downloadDirectory || app.getPath('downloads'), path.basename(item.getFilename()))
+      title: '保存下载文件', defaultPath: path.join(settings.downloadDirectory || app.getPath('downloads'), filename)
     });
     panel = 'downloads'; layout(); sendState();
     item.on('updated', (_e, state) => {
