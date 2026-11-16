@@ -1,6 +1,6 @@
 {
   "name": "thu-thesis-browser",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "private": true,
   "description": "非官方清华学位论文检索桌面客户端，修正学科名检索参数",
   "author": "Local Tools",
@@ -10,6 +10,7 @@
     "start": "electron .",
     "test": "node --test test/*.test.cjs",
     "test:desktop": "node scripts/desktop-smoke.cjs",
+    "test:tabs": "node scripts/tab-lifecycle-smoke.cjs",
     "test:live": "node scripts/live-smoke.cjs",
     "test:pdf": "node scripts/pdf-save-smoke.cjs",
     "test:pdf:live": "node scripts/pdf-save-smoke.cjs --real-viewer",

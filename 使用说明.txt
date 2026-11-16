@@ -1,12 +1,12 @@
-论文检索 · Thesis Browser 1.0.6
-2026-11-15
+论文检索 · Thesis Browser 1.0.7
+2026-11-17
 
 这是非官方的清华大学学位论文检索辅助客户端，不代表清华大学或图书馆。
 
 一、Windows 直接使用
 
-双击 release 文件夹中的 ThesisBrowser-1.0.6-win-x64.exe，无需安装 Python、Node.js 或浏览器运行库。
-也可从公开的 https://github.com/wangyendt/thu-thesis-browser/releases/latest 下载。
+双击 release 文件夹中的 ThesisBrowser-1.0.7-win-x64.exe，无需安装 Python、Node.js 或浏览器运行库。
+已发布版本也可从公开的 https://github.com/wangyendt/thu-thesis-browser/releases/latest 下载。
 首次启动便携版需要解压运行组件，速度取决于磁盘和安全扫描。不要反复双击。
 程序未购买代码签名证书，系统可能显示未知发布者。可检查源代码并自行构建。
 
@@ -74,6 +74,7 @@ Electron 安装也支持 ELECTRON_GET_USE_PROXY。依赖版本和完整性信息
 
   npm test             参数修正、请求范围和 URL 安全策略的单元测试。
   npm run test:desktop 桌面集成测试：本地模拟网站、检索、翻页、新标签页、测试 PDF 保存、会话持久化。
+  npm run test:tabs    标签生命周期回归：来源页关闭引起子页销毁后，继续新建、切换、关闭；网页自行关闭和最后一个标签关闭。
   npm run test:live    真实网站测试：2022 + 工程管理的检索和详情元数据，不尝试账号登录或受限全文下载。
   npm run test:pdf     已加载 PDF 保存的回归测试：模拟隐藏保存入口，校验保存字节和水印原样保留。
   npm run test:pdf:live 使用网站真实 PDF.js 预览器加载本地生成的水印测试文档，再通过应用保存并比对文件字节。
@@ -120,3 +121,11 @@ Windows 开启 EXE 图标及版本资源编辑，单独关闭代码签名。程�
 
 自动命名不再加入学号，详情命名元数据也不再保留该字段。按学号检索、其他命名字段和 PDF 保存流程保持不变。
 GitHub Release 提供 Windows x64 便携版、源码 ZIP 和 SHA256 校验文件。仓库及 Release 均公开，可直接下载。
+
+十三、1.0.7 标签页销毁修复
+
+关闭来源标签页时，Electron 可能自动销毁它打开的子页，只触发 destroyed，不触发 close。
+旧版只监听 close，留下失效标签记录；随后点击论文、检索或新建标签页时，状态更新读取不到 webContents，报 Cannot read properties of undefined (reading 'getURL')。
+新版在 destroyed 时同步清理标签记录，并保存独立的 webContents 引用；状态更新、布局和异步任务跳过已销毁的标签。
+新增 npm run test:tabs，覆盖来源页关闭、销毁后立即新建、连续切换和关闭、网页自行关闭及关闭最后一个标签。
+修复版在本机生成，未自动上传 GitHub Release。请关闭旧版后运行 release/ThesisBrowser-1.0.7-win-x64.exe。

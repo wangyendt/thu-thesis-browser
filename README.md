@@ -11,7 +11,7 @@
 
 ## 直接使用
 
-Windows 便携版位于 `release/ThesisBrowser-1.0.6-win-x64.exe`，也可从公开的 [GitHub Release](https://github.com/wangyendt/thu-thesis-browser/releases/latest) 下载。双击运行，无需 Python 或 Node.js。
+Windows 本地便携版位于 `release/ThesisBrowser-1.0.7-win-x64.exe`；已发布版本可从公开的 [GitHub Release](https://github.com/wangyendt/thu-thesis-browser/releases/latest) 下载。双击运行，无需 Python 或 Node.js。
 
 登录状态与旧版共用本机应用数据目录。使用新版本前关闭旧版；图标若仍显示缓存中的旧样式，可取消固定旧快捷方式，再固定新版本。
 
@@ -32,11 +32,14 @@ npm run dist:win
 
 ```sh
 npm run test:desktop
+npm run test:tabs
 npm run test:pdf:live
 npm run test:packaged
 ```
 
 最后一项需要先构建 Windows 版，会在含 `~` 的目录里验证真正的打包程序，避免 Windows 短路径 URL 编码造成的 IPC 校验回归。测试使用独立配置，不借用实际账号登录状态。
+
+`test:tabs` 验证来源页关闭导致子页销毁后，仍可新建、切换和关闭标签页。1.0.7 修复了失效标签记录残留引起的 `getURL` 主进程报错。
 
 ## 图标
 

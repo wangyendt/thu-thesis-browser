@@ -33,13 +33,14 @@ function saveSettings() {
   fs.mkdirSync(app.getPath('userData'), { recursive: true });
   fs.writeFileSync(path.join(app.getPath('userData'), 'settings.json'), JSON.stringify(settings, null, 2));
 }
-function active() { return tabs.get(activeId); }
+function isLiveTab(tab) { return !!tab && tabs.get(tab.id) === tab && !tab.webContents.isDestroyed(); }
+function active() { const tab = tabs.get(activeId); return isLiveTab(tab) ? tab : undefined; }
 function sendState() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  const list = [...tabs.values()].map(t => ({
-    id: t.id, title: t.title, url: t.view.webContents.getURL(), loading: t.loading,
+  const list = [...tabs.values()].filter(isLiveTab).map(t => ({
+    id: t.id, title: t.title, url: t.webContents.getURL(), loading: t.loading,
     patched: t.patched, error: t.error, active: t.id === activeId, pdf: t.pdf, saving: t.saving, savePhase: t.savePhase,
-    back: t.view.webContents.navigationHistory.canGoBack(), forward: t.view.webContents.navigationHistory.canGoForward()
+    back: t.webContents.navigationHistory.canGoBack(), forward: t.webContents.navigationHistory.canGoForward()
   }));
   mainWindow.webContents.send('browser:state', {
     tabs: list, downloads: [...downloads.values()].map(d => ({ ...d, item: undefined })),
@@ -59,17 +60,18 @@ function layout() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   const [width, height] = mainWindow.getContentSize();
   for (const tab of tabs.values()) {
+    if (!isLiveTab(tab)) continue;
     tab.view.setVisible(tab.id === activeId);
     tab.view.setBounds({ x: 0, y: HEADER, width: Math.max(200, width - (panel ? 360 : 0)), height: Math.max(100, height - HEADER - FOOTER) });
   }
 }
 function selectTab(id) {
-  if (!tabs.has(id)) return;
+  if (!isLiveTab(tabs.get(id))) return;
   activeId = id; layout(); sendState(); void inspectPDF(tabs.get(id));
 }
 async function inspectPDF(tab) {
-  if (!tab || tab.inspecting || tab.view.webContents.isDestroyed()) return;
-  const wc = tab.view.webContents;
+  if (!isLiveTab(tab) || tab.inspecting) return;
+  const wc = tab.webContents;
   if (!isSiteURL(wc.getURL()) || new URL(wc.getURL()).pathname !== '/pdf/generic/web/viewer.html') {
     if (tab.pdf?.isViewer) { tab.pdf = { isViewer: false, ready: false, pages: 0 }; sendState(); }
     return;
@@ -86,8 +88,8 @@ async function inspectPDF(tab) {
   finally { tab.inspecting = false; }
 }
 async function saveCurrentPDF(tab) {
-  if (!tab || tab.saving) return;
-  const wc = tab.view.webContents;
+  if (!isLiveTab(tab) || tab.saving) return;
+  const wc = tab.webContents;
   if (!isSiteURL(wc.getURL()) || new URL(wc.getURL()).pathname !== '/pdf/generic/web/viewer.html') throw new Error('请先打开论文的 PDF 预览标签页');
   const sourceURL = wc.getURL();
   tab.saving = true; tab.savePhase = '选择保存位置…';
@@ -137,10 +139,13 @@ async function saveCurrentPDF(tab) {
 function closeTab(id) {
   const tab = tabs.get(id);
   if (!tab) return;
-  mainWindow.contentView.removeChildView(tab.view);
+  // Forget the tab before closing native contents: closing an opener may
+  // synchronously destroy more tabs, without emitting their `close` events.
   tabs.delete(id);
-  if (!tab.view.webContents.isDestroyed()) tab.view.webContents.close();
   if (id === activeId) activeId = [...tabs.keys()].at(-1);
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.contentView.removeChildView(tab.view);
+  if (!tab.webContents.isDestroyed()) tab.webContents.close();
+  if (!mainWindow || mainWindow.isDestroyed()) return;
   if (!tabs.size) newTab(HOME); else { layout(); sendState(); }
 }
 async function openExternal(url) {
@@ -158,23 +163,25 @@ function allowedNavigation(url) {
   return false;
 }
 async function applyPatch(tab) {
-  if (tab.view.webContents.isDestroyed() || !isSiteURL(tab.view.webContents.getURL())) return;
-  try { tab.patched = await tab.view.webContents.executeJavaScript(PATCH_SCRIPT); }
+  if (!isLiveTab(tab) || !isSiteURL(tab.webContents.getURL())) return;
+  try { tab.patched = await tab.webContents.executeJavaScript(PATCH_SCRIPT); }
   catch { tab.patched = false; }
   sendState();
 }
 async function runPendingSearch(tab) {
-  if (!tab.pendingSearch || tab.view.webContents.isDestroyed()) return;
+  if (!isLiveTab(tab) || !tab.pendingSearch) return;
   const options = tab.pendingSearch;
   tab.pendingSearch = null;
   try {
     await applyPatch(tab);
-    await tab.view.webContents.executeJavaScript(quickSearchScript(options));
+    if (!isLiveTab(tab)) return;
+    await tab.webContents.executeJavaScript(quickSearchScript(options));
     message('已提交检索；学科名按“专业”字段查询。');
   } catch (error) { message(`检索未提交：${error.message}`); }
 }
 async function capturePaperMetadata(tab) {
-  const wc = tab.view.webContents;
+  if (!isLiveTab(tab)) return;
+  const wc = tab.webContents;
   const url = wc.isDestroyed() ? '' : wc.getURL();
   if (!isSummaryURL(url)) return;
   try {
@@ -195,10 +202,11 @@ function newTab(url = HOME, options = {}) {
     // Never inherit privileges or a preload from window.open's features.
     preload: undefined, nodeIntegrationInSubFrames: false, nodeIntegrationInWorker: false
   } });
-  const tab = { id: nextTabId++, view, title: '正在载入…', loading: true, patched: false, error: '', pendingSearch: null, pdf: { isViewer: false, ready: false, pages: 0 }, saving: false, paper: null, metadataGeneration: 0 };
+  // Keep a stable reference; Electron clears view.webContents after destruction.
+  const wc = view.webContents;
+  const tab = { id: nextTabId++, view, webContents: wc, title: '正在载入…', loading: true, patched: false, error: '', pendingSearch: null, pdf: { isViewer: false, ready: false, pages: 0 }, saving: false, paper: null, metadataGeneration: 0 };
   tabs.set(tab.id, tab);
   mainWindow.contentView.addChildView(view);
-  const wc = view.webContents;
   tab.committedURL = wc.getURL();
   if (options.paperPromise) {
     const generation = tab.metadataGeneration;
@@ -252,10 +260,12 @@ function newTab(url = HOME, options = {}) {
       const popup = newTab(null, { ...popupOptions, paperPromise, webPreferences: { ...popupOptions.webPreferences,
         partition: PARTITION, nodeIntegration: false, contextIsolation: true, sandbox: true,
         webSecurity: true, allowRunningInsecureContent: false } });
-      return popup.view.webContents;
+      return popup.webContents;
     } };
   });
-  wc.on('close', () => { if (tabs.has(tab.id)) setImmediate(() => closeTab(tab.id)); });
+  // `close` is not emitted when Electron destroys a popup with its opener.
+  // Clean up synchronously on the final lifecycle event, not on the next tick.
+  wc.once('destroyed', () => closeTab(tab.id));
   wc.on('context-menu', (_e, params) => {
     const template = [
       { label: '后退', enabled: wc.navigationHistory.canGoBack(), click: () => wc.navigationHistory.goBack() },
@@ -283,7 +293,7 @@ function newTab(url = HOME, options = {}) {
 function setupDownloads() {
   siteSession.on('will-download', (_event, item, source) => {
     const id = nextDownloadId++;
-    const tab = [...tabs.values()].find(t => t.view.webContents === source);
+    const tab = [...tabs.values()].find(t => t.webContents === source);
     const filename = (item.getMimeType() === 'application/pdf' || /\.pdf$/i.test(item.getFilename())) && tab?.paper
       ? buildPaperFilename(tab.paper, item.getFilename()) : path.basename(item.getFilename());
     const entry = { id, filename, state: 'progressing', received: 0, total: item.getTotalBytes(), path: '', item };
@@ -304,7 +314,7 @@ function setupDownloads() {
 }
 
 async function command(action, payload) {
-  const tab = active(); const wc = tab?.view.webContents;
+  const tab = active(); const wc = tab?.webContents;
   switch (action) {
     case 'state': sendState(); break;
     case 'back': if (wc?.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); break;
@@ -325,8 +335,8 @@ async function command(action, payload) {
       let target = tab;
       if (!target || !isSiteURL(wc.getURL()) || !new URL(wc.getURL()).pathname.endsWith('/cjjs')) target = newTab(null);
       target.pendingSearch = options;
-      if (isSiteURL(target.view.webContents.getURL()) && !target.loading) await runPendingSearch(target);
-      else await target.view.webContents.loadURL(HOME);
+      if (isSiteURL(target.webContents.getURL()) && !target.loading) await runPendingSearch(target);
+      else await target.webContents.loadURL(HOME);
       break;
     }
     case 'panel': panel = panel === payload ? '' : (['downloads', 'help'].includes(payload) ? payload : ''); layout(); sendState(); break;
@@ -357,8 +367,9 @@ function createWindow() {
   mainWindow.on('close', confirmExit);
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.on('closed', () => {
-    for (const t of tabs.values()) if (!t.view.webContents.isDestroyed()) t.view.webContents.close();
-    tabs.clear(); mainWindow = null;
+    const remaining = [...tabs.values()];
+    tabs.clear(); mainWindow = null; activeId = undefined;
+    for (const t of remaining) if (!t.webContents.isDestroyed()) t.webContents.close();
   });
   mainWindow.webContents.on('did-finish-load', sendState);
   void mainWindow.loadFile(path.join(__dirname, 'shell.html'));
@@ -391,9 +402,9 @@ app.whenReady().then(() => {
     ] },
     { label: '编辑', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
     { label: '查看', submenu: [
-      { label: '刷新网页', accelerator: 'CmdOrCtrl+R', click: () => active()?.view.webContents.reload() },
-      { label: '放大网页', accelerator: 'CmdOrCtrl+Plus', click: () => { const wc = active()?.view.webContents; if (wc) wc.setZoomFactor(Math.min(2, wc.getZoomFactor() + 0.1)); } },
-      { label: '缩小网页', accelerator: 'CmdOrCtrl+-', click: () => { const wc = active()?.view.webContents; if (wc) wc.setZoomFactor(Math.max(0.5, wc.getZoomFactor() - 0.1)); } },
+      { label: '刷新网页', accelerator: 'CmdOrCtrl+R', click: () => active()?.webContents.reload() },
+      { label: '放大网页', accelerator: 'CmdOrCtrl+Plus', click: () => { const wc = active()?.webContents; if (wc) wc.setZoomFactor(Math.min(2, wc.getZoomFactor() + 0.1)); } },
+      { label: '缩小网页', accelerator: 'CmdOrCtrl+-', click: () => { const wc = active()?.webContents; if (wc) wc.setZoomFactor(Math.max(0.5, wc.getZoomFactor() - 0.1)); } },
       { role: 'togglefullscreen', label: '全屏' }
     ] }
   ]));
